@@ -38,23 +38,6 @@
  * fuse_opt_parse would attempt to free() them when the user specifies
  * different values on the command line.
  */
-static struct options
-{
-    const char *filename;
-    const char *contents;
-    int show_help;
-} options;
-
-#define OPTION(t, p)                      \
-    {                                     \
-        t, offsetof(struct options, p), 1 \
-    }
-static const struct fuse_opt option_spec[] = {
-    OPTION("--name=%s", filename),
-    OPTION("--contents=%s", contents),
-    OPTION("-h", show_help),
-    OPTION("--help", show_help),
-    FUSE_OPT_END};
 
 static void *mem_init(struct fuse_conn_info *conn,
                       struct fuse_config *cfg)
@@ -63,8 +46,6 @@ static void *mem_init(struct fuse_conn_info *conn,
     tcp_init();
     flush_all();
     make_dir("/");
-    cfg->kernel_cache = 1;
-    // assert(1 == 2)
     return NULL;
 }
 
@@ -74,17 +55,16 @@ static int mem_getattr(const char *path, struct stat *stbuf,
     (void)fi;
     int res = 0;
     memset(stbuf, 0, sizeof(struct stat));
-    //is_dir((char *)path)
     if (is_dir((char *)path))
     {
         stbuf->st_mode = S_IFDIR | 0755;
         stbuf->st_nlink = 2;
     }
-    else if (0)
+    else if (is_file((char *)path))
     {
         stbuf->st_mode = S_IFREG | 0444;
         stbuf->st_nlink = 1;
-        stbuf->st_size = strlen(options.contents);
+        stbuf->st_size = 6;
     }
     else
     {
@@ -101,96 +81,98 @@ static int mem_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     (void)offset;
     (void)fi;
     (void)flags;
-    // printf("aeee");
-    if (strcmp(path, "/") != 0)
+
+    if (is_dir((char *)path) == 0)
         return -ENOENT;
 
     filler(buf, ".", NULL, 0, 0);
     filler(buf, "..", NULL, 0, 0);
 
     char *dir_stuff = read_dir((char *)path);
+    if (dir_stuff == NULL)
+    {
+        return 0;
+    }
     char *tok = strtok(dir_stuff, " ");
     while (tok != NULL)
     {
+        // printf("%s\n", tok);
         filler(buf, tok, NULL, 0, 0);
         tok = strtok(NULL, " ");
     }
 
     return 0;
 }
-
 static int mem_open(const char *path, struct fuse_file_info *fi)
 {
-    if (strcmp(path + 1, options.filename) != 0)
+    if (!is_file((char *)path))
         return -ENOENT;
 
-    if ((fi->flags & O_ACCMODE) != O_RDONLY)
-        return -EACCES;
+    // if ((fi->flags & O_ACCMODE) != O_RDONLY)
+    //     return -EACCES;
 
     return 0;
+}
+
+static int mem_create(const char *path, mode_t mode,
+                      struct fuse_file_info *fi)
+{
+    create_file((char *)path);
+    return mem_open(path, fi);
 }
 
 static int mem_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
-    size_t len;
     (void)fi;
-    if (strcmp(path + 1, options.filename) != 0)
+    if (!is_file((char *)path))
+        return -ENOENT;
+    int res = mread((char *)path, buf, size, offset);
+    printf("%s %d\n", buf, res);
+    return res - 1;
+}
+
+static int mem_write(const char *path, const char *buf, size_t size,
+                     off_t offset, struct fuse_file_info *fi)
+{
+    (void)fi;
+    if (!is_file((char *)path))
         return -ENOENT;
 
-    len = strlen(options.contents);
-    if (offset < len)
-    {
-        if (offset + size > len)
-            size = len - offset;
-        memcpy(buf, options.contents + offset, size);
-    }
-    else
-        size = 0;
-
-    return size;
+    printf("oeeee\n");
+    return mwrite((char *)path, (char *)buf, size, offset);
 }
 
 static int mem_mkdir(const char *path, mode_t mode)
 {
-
-    // (void)path;
     make_dir((char *)path);
     return 0;
 }
 
-static struct fuse_operations hello_oper = {
+static int mem_rmdir(const char *path)
+{
+    return rm_dir((char *)path);
+}
+
+static struct fuse_operations mem_oper = {
     .init = mem_init,
     .getattr = mem_getattr,
     .readdir = mem_readdir,
     .open = mem_open,
+    .create = mem_create,
     .read = mem_read,
+    .write = mem_write,
     .mkdir = mem_mkdir,
+    .rmdir = mem_rmdir,
 };
-
-static void show_help(const char *progname)
-{
-    printf("usage: %s [options] <mountpoint>\n\n", progname);
-    printf("File-system specific options:\n"
-           "    --name=<s>          Name of the \"hello\" file\n"
-           "                        (default: \"hello\")\n"
-           "    --contents=<s>      Contents \"hello\" file\n"
-           "                        (default \"Hello, World!\\n\")\n"
-           "\n");
-}
 
 int main(int argc, char *argv[])
 {
     int ret;
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
-    options.filename = strdup("hello");
-    options.contents = strdup("Hello World!\n");
-    /* Parse options */
-    if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1)
-        return 1;
-
-    ret = fuse_main(args.argc, args.argv, &hello_oper, NULL);
+    ret = fuse_main(args.argc, args.argv, &mem_oper, NULL);
+    printf("bla\n");
     fuse_opt_free_args(&args);
     return ret;
 }

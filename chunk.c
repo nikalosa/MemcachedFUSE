@@ -1,6 +1,7 @@
 #include "chunk.h"
 #include "Memcached.h"
 #include "util.h"
+#include <sys/types.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,15 +15,29 @@ void init_chunk(struct chunk *chunk, int isdir, int hash, int ind)
     chunk->isdir = isdir;
 }
 
-void chunk_add_data(struct chunk *chunk, char *data, int elem_len, int str_size)
+void chunk_add_data(struct chunk *chunk, char *src, int elem_len, int str_size)
 {
-    memcpy(chunk->data + chunk->size, data, elem_len);
-    // printf("%d ae", chunk->size / 4);
+    memcpy(chunk->data + chunk->size, src, elem_len);
     chunk->size += elem_len;
-    // printf("%d \n", chunk->size / 4);
-    replace_cache(get_chunk_hash(chunk->ind, chunk->hash), 0, 0, str_size, (char *)chunk);
-    chunk = get_chunk(chunk->ind, chunk->hash);
-    // printf("%d\n", chunk->size / 4);
+    chunk_replace(chunk);
+}
+
+void chunk_write_data(struct chunk *chunk, char *src, int n, off_t chunk_offset, off_t src_offset)
+{
+    memcpy(chunk->data + chunk_offset, src + src_offset, n);
+    if (chunk->size < chunk_offset + n)
+        chunk->size = chunk_offset + n;
+    chunk_replace(chunk);
+}
+
+void chunk_get_data(struct chunk *chunk, char *dst, int n, off_t chunk_offset, off_t dst_offset)
+{
+    memcpy(dst + dst_offset, chunk->data + chunk_offset, n);
+}
+
+void chunk_replace(struct chunk *chunk)
+{
+    replace_cache(get_chunk_hash(chunk->ind, chunk->hash), 0, 0, sizeof(struct chunk), (char *)chunk);
 }
 
 struct chunk *create_new_chunk(int ind, int isdir, int hash)

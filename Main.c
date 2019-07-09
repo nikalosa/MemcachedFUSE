@@ -16,12 +16,11 @@ int main()
 
   flush_all();
   make_dir("/");
-  char *str = get_cache("0A1");
 
   // struct chunk *dir = (struct chunk *)get_obj(str);
   // printf("%d %d %d\n", dir->size, dir->hash, dir->ind);
   // printf("ae");
-  for (int i = 0; i < 100; i++)
+  for (int i = 0; i < 10; i++)
   {
     char *path = malloc(4);
     path[0] = '/';
@@ -29,14 +28,14 @@ int main()
     strcat(path, int_to_string(i));
     make_dir(path);
   }
-  printf("\n%s", read_dir("/ae/yle/yle"));
-  // printf("%d %d", is_dir("bla"), is_dir("/nikalosa/bla"));
-  // str = get_cache("0A1");
-
-  // dir = (struct chunk *)get_obj(str);
-  // printf("%d %d %d %d", dir->size, dir->hash, dir->ind, *((int *)dir->data));
-
-  // str = get_cache("602417405");
-  // struct directory *d = (struct directory *)get_obj(str);
-  // printf("%s", d->name);
+  create_file("/a.txt");
+  mwrite("/a.txt", "nikalosaberidze", 15, 0);
+  char *buf = malloc(20);
+  mwrite("/a.txt", "aez", 3, 4);
+  mread("/a.txt", buf, 15, 0);
+  printf("%s", buf);
+  // printf("%s\n", read_dir("/"));
+  // printf("%d\n", rm_dir("/2"));
+  // printf("%s\n", read_dir("/"));
+  // printf("\n%s", read_dir("/ae/yle/yle"));
 }
