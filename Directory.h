@@ -21,7 +21,7 @@ struct file
 };
 
 void init_dir(struct directory *dir, int hash, char *name);
-struct directory *make_dir(char *path);
+int make_dir(char *path);
 int is_dir(char *path);
 char *read_dir(char *path);
 int rm_dir(char *path);

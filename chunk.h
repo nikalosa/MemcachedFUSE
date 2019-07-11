@@ -29,3 +29,5 @@ struct chunk *get_chunk(int ind, int hash);
 int can_fit(struct chunk *chunk, int bytes);
 
 void chunk_replace(struct chunk *chunk);
+
+void chunk_delete(struct chunk *chunk);

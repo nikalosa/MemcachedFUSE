@@ -21,7 +21,8 @@ int string_to_int(char *num)
 
 char *int_to_string(int num)
 {
-    char *str_num = malloc(10);
+    char *str_num = malloc(20);
+    memset(str_num, 0, 20);
     sprintf(str_num, "%d", num);
     return str_num;
 }
@@ -33,6 +34,7 @@ char *name_from_path(char *path)
         if (path[i] == '/')
         {
             char *name = malloc(50);
+            memset(name, 0, 50);
             strcpy(name, path + i + 1);
             return name;
         }
@@ -47,6 +49,7 @@ char *parent_from_path(char *path)
         if (path[i] == '/')
         {
             char *name = malloc(50);
+            memset(name, 0, 50);
             if (i > 0)
                 strncpy(name, path, i);
             else
@@ -58,6 +61,7 @@ char *parent_from_path(char *path)
 
 char *get_obj(char *resp)
 {
+    printf("blawaaaaaaan2\n");
     char *tok = strtok(resp, " ");
     int ind = 0;
     int len = 0;
@@ -72,11 +76,13 @@ char *get_obj(char *resp)
             len = string_to_int(tok);
             obj = malloc(len);
             memcpy(obj, resp + offset, len);
+            // free(resp);
             return obj;
         }
         offset += strlen(tok) + 1;
         tok = strtok(NULL, " ");
         ind++;
     }
+    // free(resp);
     return NULL;
 }

@@ -22,6 +22,8 @@
 
 #include "Directory.h"
 #include "Memcached.h"
+#include "util.h"
+#include "chunk.h"
 
 #include <fuse.h>
 #include <stdio.h>
@@ -105,7 +107,14 @@ static int mem_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 }
 static int mem_open(const char *path, struct fuse_file_info *fi)
 {
-    if (!is_file((char *)path))
+
+    printf("bla\n");
+    if ((fi->flags & O_CREAT))
+    {
+        create_file((char *)path);
+    }
+
+    else if (!is_file((char *)path))
         return -ENOENT;
 
     // if ((fi->flags & O_ACCMODE) != O_RDONLY)
@@ -135,11 +144,11 @@ static int mem_read(const char *path, char *buf, size_t size, off_t offset,
 static int mem_write(const char *path, const char *buf, size_t size,
                      off_t offset, struct fuse_file_info *fi)
 {
+    printf("oeeee\n");
     (void)fi;
     if (!is_file((char *)path))
         return -ENOENT;
 
-    printf("oeeee\n");
     return mwrite((char *)path, (char *)buf, size, offset);
 }
 
@@ -154,16 +163,48 @@ static int mem_rmdir(const char *path)
     return rm_dir((char *)path);
 }
 
+static int mem_link(const char *from, const char *to)
+{
+    if (!is_file((char *)from) || is_dir((char *)to) || is_file((char *)to))
+        return -ENOENT;
+
+    struct file *file = path_to_file((char *)from);
+    struct file *link = malloc(sizeof(struct file));
+    memcpy(link, file, sizeof(struct file));
+    strcpy(link->name, name_from_path((char *)to));
+    add_cache(int_to_string(hash_str((char *)to)), 0, 0, sizeof(struct file), (char *)link);
+    struct directory *parent_dir = path_to_dir(parent_from_path((char *)to));
+    add_object(parent_dir, hash_str((char *)to));
+    return 0;
+}
+
+static int mem_symlink(const char *from, const char *to)
+{
+    if (!is_file((char *)from) || is_dir((char *)to) || is_file((char *)to))
+        return -ENOENT;
+
+    struct file *file = path_to_file((char *)from);
+    struct file *link = malloc(sizeof(struct file));
+    memcpy(link, file, sizeof(struct file));
+    strcpy(link->name, name_from_path((char *)to));
+    add_cache(int_to_string(hash_str((char *)to)), 0, 0, sizeof(struct file), (char *)link);
+    struct directory *parent_dir = path_to_dir(parent_from_path((char *)to));
+    add_object(parent_dir, hash_str((char *)to));
+    return 0;
+}
+
 static struct fuse_operations mem_oper = {
     .init = mem_init,
     .getattr = mem_getattr,
     .readdir = mem_readdir,
-    .open = mem_open,
+    // .open = mem_open,
     .create = mem_create,
     .read = mem_read,
     .write = mem_write,
     .mkdir = mem_mkdir,
     .rmdir = mem_rmdir,
+    .link = mem_link,
+    .symlink = mem_symlink,
 };
 
 int main(int argc, char *argv[])

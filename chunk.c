@@ -40,10 +40,16 @@ void chunk_replace(struct chunk *chunk)
     replace_cache(get_chunk_hash(chunk->ind, chunk->hash), 0, 0, sizeof(struct chunk), (char *)chunk);
 }
 
+void chunk_delete(struct chunk *chunk)
+{
+    delete_cache(get_chunk_hash(chunk->ind, chunk->hash));
+}
+
 struct chunk *create_new_chunk(int ind, int isdir, int hash)
 {
     char *chunk_hash = get_chunk_hash(ind, hash);
     struct chunk *chunk = malloc(sizeof(struct chunk));
+    memset(chunk, 0, sizeof(struct chunk));
     init_chunk(chunk, isdir, hash, ind);
     // MEMCACHE ADD
     add_cache(chunk_hash, 0, 0, 1024, (char *)chunk);
@@ -57,6 +63,7 @@ int can_fit(struct chunk *chunk, int bytes)
 
 struct chunk *get_chunk(int ind, int hash)
 {
+    printf("%d %d\n", ind, hash);
     char *chunk_hash = get_chunk_hash(ind, hash);
     return (struct chunk *)get_obj(get_cache(chunk_hash));
 }
@@ -64,7 +71,10 @@ struct chunk *get_chunk(int ind, int hash)
 char *get_chunk_hash(int numb, int hash)
 {
     char *hash_str = int_to_string(hash);
-    hash_str = realloc(hash_str, sizeof(hash_str) + 11);
+    //int len = strlen(hash_str);
+    //hash_str = realloc(hash_str, 30);
+    //printf("%d ait\n", len);
+    //hash_str[len] = '\0';
     strcat(hash_str, "A");
     strcat(hash_str, int_to_string(numb));
     return hash_str;

@@ -96,10 +96,11 @@ int prepend_cache(char *key, int flags, int exptime, int bytes, char *data)
 char *get_cache(char *keys)
 {
     // create_connection();
-    char req[50];
+    char req[30];
     sprintf(req, "get %s\r\n", keys);
     write(clientfd, req, strlen(req));
     char *resp = get_response();
+    // printf("blawaaan1\n");
     return resp;
 }
 

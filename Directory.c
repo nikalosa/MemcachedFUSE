@@ -2,6 +2,7 @@
 #include "chunk.h"
 #include "Directory.h"
 #include "Memcached.h"
+#include <assert.h>
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -17,23 +18,30 @@ void init_dir(struct directory *dir, int hash, char *name)
     create_new_chunk(1, 1, hash);
 }
 
-struct directory *make_dir(char *path)
+int make_dir(char *path)
 {
+
     if (strlen(path) == 1)
         path = strdup("");
-
+    //     assert(strlen(path) == 0);
+    // assert(strlen(name_from_path(path)) <= 50);
     struct directory *dir = malloc(sizeof(struct directory));
-    if (strlen(path) > 1)
+    memset(dir, 0, sizeof(struct directory));
+    if (strlen(path) > 0)
     {
+        // printf("%s\n", parent_from_path(path));
         struct directory *parent_dir = path_to_dir(parent_from_path(path));
+        // printf("%s %d %d aeee\n", path, hash_str(path), hash_str(parent_from_path(path)));
         add_object(parent_dir, hash_str(path));
         dir->chunk_id = parent_dir->chunk_numb;
+        // free(parent_dir);
     }
     else
         dir->chunk_id = 0;
 
     init_dir(dir, hash_str(path), name_from_path(path));
-    return dir;
+    // free(dir);
+    return 0;
 }
 
 int is_dir(char *path)
@@ -51,9 +59,10 @@ int is_dir(char *path)
 struct chunk *get_suited_chunk(struct directory *dir)
 {
     struct chunk *chunk = get_chunk(dir->chunk_numb, dir->dir_hash);
+    // printf("yleeeeeeeeeeeeeeeeeeeeee\n");
     if (can_fit(chunk, sizeof(int)))
         return chunk;
-
+    // free(chunk);
     dir->chunk_numb++;
     replace_cache(int_to_string(dir->dir_hash), 0, 0, sizeof(struct directory), (char *)dir);
     return create_new_chunk(dir->chunk_numb, 1, dir->dir_hash);
@@ -62,7 +71,9 @@ struct chunk *get_suited_chunk(struct directory *dir)
 void add_object(struct directory *dir, int new_obj_hash)
 {
     struct chunk *suited_chunk = get_suited_chunk(dir);
+    printf("Blaaaaaaaa\n");
     chunk_add_data(suited_chunk, (char *)&new_obj_hash, sizeof(int), sizeof(struct chunk));
+    // free(suited_chunk);
 }
 
 struct directory *path_to_dir(char *path)
@@ -77,15 +88,18 @@ struct directory *hash_to_dir(int hash)
 
 char *hash_to_struct(int hash)
 {
+    // printf/("basdasdas\n");
     return get_obj(get_cache(int_to_string(hash)));
 }
 
 char *read_dir(char *path)
 {
+    // assert(0);
     if (strlen(path) == 1)
         path = strdup("");
     int len = 1024;
     char *read_dir = malloc(1024);
+    memset(read_dir, 0, 1024);
     struct directory *dir = path_to_dir(path);
     for (int i = 1; i <= dir->chunk_numb; i++)
     {
@@ -101,10 +115,12 @@ char *read_dir(char *path)
             {
                 len *= 2;
                 read_dir = realloc(read_dir, len);
+                read_dir[len] = '\0';
             }
             strcat(read_dir, name);
             strcat(read_dir, " ");
         }
+        // free(chunk);
     }
     return read_dir;
 }
@@ -115,6 +131,7 @@ int rm_dir(char *path)
         path = strdup("");
     int len = 1024;
     char *read_dir = malloc(1024);
+    memset(read_dir, 0, 1024);
     struct directory *dir = path_to_dir(path);
     if (dir->chunk_numb > 1 || get_chunk(1, dir->dir_hash)->size > 0)
         return -1;
@@ -123,19 +140,41 @@ int rm_dir(char *path)
     char *par = parent_from_path(path);
     struct directory *par_dir = path_to_dir(par);
     struct chunk *chunk = get_chunk(dir->chunk_id, par_dir->dir_hash);
-
+    // struct chunk *chunk_last = get_chunk(par_dir->chunk_numb, par_dir->dir_hash);
     for (int j = 0; j < chunk->size / 4; j++)
     {
         int key_hash = *((int *)chunk->data + j);
         if (key_hash == dir->dir_hash)
         {
             memcpy((int *)chunk->data + j, (int *)chunk->data + chunk->size / 4 - 1, sizeof(int));
+            // printf("%d ", key_hash);
+            // int a_key_hash = *((int *)chunk->data + j);
+            // printf("%d\n", key_hash);
+            // printf("aeeee %d\n", ((int *)hash_to_struct(key_hash))[1]);
             chunk->size -= sizeof(int);
+            // if (a_key_hash != key_hash && chunk_last->size)
+            // {
+            //     printf("alo\n");
+            //     *((int *)hash_to_struct(key_hash)) = dir->chunk_id;
+            // }
+            // if (chunk_last->size == 0)
+            // {
+            // par_dir->chunk_numb--;
+            // chunk_delete(chunk_last);
+            // replace_cache(int_to_string(par_dir->dir_hash), 0, 0, sizeof(struct directory), (char *)par_dir);
+            // }
+            // else
+            // {
+            // }
+            // chunk_replace(chunk_last);
             chunk_replace(chunk);
+            // free(chunk);
+            // free(chunk_last);
+            // free(par_dir);
             return 0;
         }
     }
-    return 0;
+    return -1;
 }
 
 void init_file(struct file *file, int hash, char *name)
@@ -151,15 +190,10 @@ void init_file(struct file *file, int hash, char *name)
 struct file *create_file(char *path)
 {
     struct file *file = malloc(sizeof(struct file));
-    if (strlen(path) > 1)
-    {
-        struct directory *parent_dir = path_to_dir(parent_from_path(path));
-        add_object(parent_dir, hash_str(path));
-        file->chunk_id = parent_dir->chunk_numb;
-    }
-    else
-        file->chunk_id = 0;
-
+    memset(file, 0, sizeof(struct file));
+    struct directory *parent_dir = path_to_dir(parent_from_path(path));
+    add_object(parent_dir, hash_str(path));
+    file->chunk_id = parent_dir->chunk_numb;
     init_file(file, hash_str(path), name_from_path(path));
     return file;
 }
@@ -194,6 +228,10 @@ int mwrite(char *path, char *buf, size_t size, off_t offset)
 
 int mread(char *path, char *buf, size_t size, off_t offset)
 {
+    if (size > 100000)
+    {
+        size = 100000;
+    }
     struct file *file = path_to_file(path);
     int read_bytes = 0;
     int chunk_index = offset / (1024 - 4 * sizeof(int)) + 1;
@@ -205,11 +243,11 @@ int mread(char *path, char *buf, size_t size, off_t offset)
 
         struct chunk *chunk = get_chunk(chunk_index, file->file_hash);
         int free_space = (1024 - 4 * sizeof(int)) - chunk_offset;
-        if (size - read_bytes < free_space)
-            free_space = size - read_bytes;
         if (chunk_offset >= chunk->size)
             return 0;
         int br = 0;
+        if (size - read_bytes < free_space)
+            free_space = size - read_bytes;
         if (free_space + chunk_offset > chunk->size)
         {
             br = 1;
@@ -217,6 +255,7 @@ int mread(char *path, char *buf, size_t size, off_t offset)
         }
         chunk_get_data(chunk, buf, free_space, chunk_offset, read_bytes);
         read_bytes += free_space;
+        buf[read_bytes] = '\0';
         chunk_offset = 0;
         chunk_index++;
         if (br)
