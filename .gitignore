@@ -50,3 +50,22 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Files
+.vagrant/
+.vscode/
+GB_test.txt
+KB_Test.txt
+MB_Test.txt
+Vagrantfile
+bla/
+cachefs
+check_dir.sh
+test.c
+test.sh
+test2.c
+test2.sh
+test_1GB.c
+test_random.c
+testing/
+ubuntu-bionic-18.04-cloudimg-console.log  
