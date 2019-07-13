@@ -54,6 +54,9 @@ static void *mem_init(struct fuse_conn_info *conn,
 static int mem_getattr(const char *path, struct stat *stbuf,
                        struct fuse_file_info *fi)
 {
+
+    // printf("getattr: %s\n", path);
+
     (void)fi;
     int res = 0;
     memset(stbuf, 0, sizeof(struct stat));
@@ -66,7 +69,7 @@ static int mem_getattr(const char *path, struct stat *stbuf,
     {
         stbuf->st_mode = S_IFREG | 0444;
         stbuf->st_nlink = 1;
-        stbuf->st_size = 6;
+        stbuf->st_size = file_size((char *)path);
     }
     else
     {
@@ -80,6 +83,7 @@ static int mem_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                        off_t offset, struct fuse_file_info *fi,
                        enum fuse_readdir_flags flags)
 {
+
     (void)offset;
     (void)fi;
     (void)flags;
@@ -108,14 +112,19 @@ static int mem_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 static int mem_open(const char *path, struct fuse_file_info *fi)
 {
 
-    printf("bla\n");
-    if ((fi->flags & O_CREAT))
+    // printf("open: %s\n", path);
+    if (fi->flags & (O_CREAT | O_WRONLY | O_TRUNC))
     {
-        create_file((char *)path);
+        struct file file;
+        create_file((char *)path, &file);
     }
-
     else if (!is_file((char *)path))
         return -ENOENT;
+    if (O_TRUNC & fi->flags)
+    {
+        printf("aeeeee\n");
+        del_file_data((char *)path);
+    }
 
     // if ((fi->flags & O_ACCMODE) != O_RDONLY)
     //     return -EACCES;
@@ -126,28 +135,42 @@ static int mem_open(const char *path, struct fuse_file_info *fi)
 static int mem_create(const char *path, mode_t mode,
                       struct fuse_file_info *fi)
 {
-    create_file((char *)path);
     return mem_open(path, fi);
 }
 
 static int mem_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
+    // printf("%s %d\n", path, size);
     (void)fi;
     if (!is_file((char *)path))
         return -ENOENT;
     int res = mread((char *)path, buf, size, offset);
-    printf("%s %d\n", buf, res);
-    return res - 1;
+    // printf("%s %d\n", buf, res);
+    return res;
 }
 
 static int mem_write(const char *path, const char *buf, size_t size,
                      off_t offset, struct fuse_file_info *fi)
 {
-    printf("oeeee\n");
-    (void)fi;
     if (!is_file((char *)path))
         return -ENOENT;
+
+    if (O_APPEND & fi->flags)
+    {
+        // offset = -1;
+    }
+
+    // printf("oeeee %s\n", path);
+
+    // printf("%d %d \n", offset, size);
+    // for (int i = 0; i < size; i++)
+    // {
+    //     printf("%c", buf[i]);
+    // }
+    // printf("\n");
+
+    // printf("oeeee %s\n", path);
 
     return mwrite((char *)path, (char *)buf, size, offset);
 }
@@ -168,13 +191,18 @@ static int mem_link(const char *from, const char *to)
     if (!is_file((char *)from) || is_dir((char *)to) || is_file((char *)to))
         return -ENOENT;
 
-    struct file *file = path_to_file((char *)from);
-    struct file *link = malloc(sizeof(struct file));
-    memcpy(link, file, sizeof(struct file));
-    strcpy(link->name, name_from_path((char *)to));
-    add_cache(int_to_string(hash_str((char *)to)), 0, 0, sizeof(struct file), (char *)link);
-    struct directory *parent_dir = path_to_dir(parent_from_path((char *)to));
-    add_object(parent_dir, hash_str((char *)to));
+    // struct file file;
+    // path_to_file((char *)from, file);
+    // struct file link;
+    // memcpy(&link, &file, sizeof(struct file));
+    // strcpy(link->name, name_from_path((char *)to));
+    // char hash[50];
+    // memset(hash, 0, 50);
+    // int_to_string(hash_str((char *)to), hash);
+    // add_cache(hash, 0, 0, sizeof(struct file), (char *)link);
+    // struct directory parent_dir;
+    // path_to_dir(parent_from_path((char *)to), &dir);
+    // add_object(parent_dir, hash_str((char *)to));
     return 0;
 }
 
@@ -183,13 +211,13 @@ static int mem_symlink(const char *from, const char *to)
     if (!is_file((char *)from) || is_dir((char *)to) || is_file((char *)to))
         return -ENOENT;
 
-    struct file *file = path_to_file((char *)from);
-    struct file *link = malloc(sizeof(struct file));
-    memcpy(link, file, sizeof(struct file));
-    strcpy(link->name, name_from_path((char *)to));
-    add_cache(int_to_string(hash_str((char *)to)), 0, 0, sizeof(struct file), (char *)link);
-    struct directory *parent_dir = path_to_dir(parent_from_path((char *)to));
-    add_object(parent_dir, hash_str((char *)to));
+    // struct file *file = path_to_file((char *)from);
+    // struct file *link = malloc(sizeof(struct file));
+    // memcpy(link, file, sizeof(struct file));
+    // strcpy(link->name, name_from_path((char *)to));
+    // add_cache(int_to_string(hash_str((char *)to)), 0, 0, sizeof(struct file), (char *)link);
+    // struct directory *parent_dir = path_to_dir(parent_from_path((char *)to));
+    // add_object(parent_dir, hash_str((char *)to));
     return 0;
 }
 
@@ -213,7 +241,6 @@ int main(int argc, char *argv[])
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
     ret = fuse_main(args.argc, args.argv, &mem_oper, NULL);
-    printf("bla\n");
     fuse_opt_free_args(&args);
     return ret;
 }

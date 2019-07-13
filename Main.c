@@ -17,23 +17,29 @@ int main()
   flush_all();
   make_dir("/");
 
+  char *path = malloc(1000);
+  memset(path, 0, 1000);
   // struct chunk *dir = (struct chunk *)get_obj(str);
   // printf("%d %d %d\n", dir->size, dir->hash, dir->ind);
   // printf("ae");
-  for (int i = 0; i < 10; i++)
+  for (int i = 0; i < 100; i++)
   {
-    char *path = malloc(4);
-    path[0] = '/';
-
-    strcat(path, int_to_string(i));
+    // printf("\n%d\n", i);
+    // path[0] = '\0';
+    strcat(path, "/");
+    strcat(path, "dir_rec_");
+    sprintf(path, "%d", i);
+    printf("SUCCESS: %d %s\n", i, read_dir(path));
     make_dir(path);
   }
-  create_file("/a.txt");
-  mwrite("/a.txt", "nikalosaberidze", 15, 0);
-  char *buf = malloc(20);
-  mwrite("/a.txt", "aez", 3, 4);
-  mread("/a.txt", buf, 15, 0);
-  printf("%s", buf);
+  // printf("bla\n");
+  // create_file("/a.txt");
+
+  // mwrite("/a.txt", "nikalosaberidze", 15, 0);
+  // char *buf = malloc(20);
+  // mwrite("/a.txt", "aez", 3, 4);
+  // mread("/a.txt", buf, 15, 0);
+  // printf("%s", buf);
   // printf("%s\n", read_dir("/"));
   // printf("%d\n", rm_dir("/2"));
   // printf("%s\n", read_dir("/"));

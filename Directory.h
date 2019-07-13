@@ -27,17 +27,18 @@ char *read_dir(char *path);
 int rm_dir(char *path);
 void add_object(struct directory *dir, int new_obj_hash);
 
-struct directory *path_to_dir(char *path);
-struct directory *hash_to_dir(int hash);
+void path_to_dir(char *path, struct directory *dir);
+void hash_to_dir(int hash, struct directory *dir);
 
-struct chunk *get_suited_chunk();
-char *hash_to_struct(int hash);
+void get_suited_chunk(struct directory *dir, struct chunk *chunk);
+void hash_to_struct(int hash, char *obj);
 
 void init_file(struct file *file, int hash, char *name);
 int is_file(char *path);
-struct file *create_file(char *path);
 int mwrite(char *path, char *buf, size_t size, off_t offset);
 int mread(char *path, char *buf, size_t size, off_t offset);
-struct file *path_to_file(char *path);
-struct file *hash_to_file(int hash);
-struct file *create_file(char *path);
+void path_to_file(char *path, struct file *file);
+void hash_to_file(int hash, struct file *file);
+void create_file(char *path, struct file *file);
+int file_size(char *path);
+int del_file_data(char *path); 

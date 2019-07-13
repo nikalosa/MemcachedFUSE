@@ -19,54 +19,44 @@ int string_to_int(char *num)
     return atoi(num);
 }
 
-char *int_to_string(int num)
+void int_to_string(int num, char *str_num)
 {
-    char *str_num = malloc(20);
-    memset(str_num, 0, 20);
     sprintf(str_num, "%d", num);
-    return str_num;
 }
 
-char *name_from_path(char *path)
+void name_from_path(char *path, char *name)
 {
     for (int i = strlen(path) - 1; i >= 0; i--)
     {
         if (path[i] == '/')
         {
-            char *name = malloc(50);
-            memset(name, 0, 50);
             strcpy(name, path + i + 1);
-            return name;
+            return;
         }
     }
-    return "";
 }
 
-char *parent_from_path(char *path)
+void parent_from_path(char *path, char *name)
 {
     for (int i = strlen(path) - 1; i >= 0; i--)
     {
         if (path[i] == '/')
         {
-            char *name = malloc(50);
-            memset(name, 0, 50);
             if (i > 0)
                 strncpy(name, path, i);
             else
                 name[0] = '\0';
-            return name;
+            return;
         }
     }
 }
 
-char *get_obj(char *resp)
+void get_obj(char *resp, char *obj)
 {
-    printf("blawaaaaaaan2\n");
     char *tok = strtok(resp, " ");
     int ind = 0;
     int len = 0;
     int offset = 0;
-    char *obj;
     while (tok != NULL)
     {
         if (ind == 3)
@@ -74,15 +64,12 @@ char *get_obj(char *resp)
             tok = strtok(tok, "\r");
             offset += strlen(tok) + 2;
             len = string_to_int(tok);
-            obj = malloc(len);
             memcpy(obj, resp + offset, len);
-            // free(resp);
-            return obj;
+            return;
         }
         offset += strlen(tok) + 1;
         tok = strtok(NULL, " ");
         ind++;
     }
-    // free(resp);
-    return NULL;
+    return;
 }

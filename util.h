@@ -9,10 +9,10 @@ int hash_str(char *str);
 
 int string_to_int(char *num);
 
-char *int_to_string(int num);
+void int_to_string(int num, char *str_num);
 
-char *name_from_path(char *path);
+void name_from_path(char *path, char *name);
 
-char *get_obj(char *resp);
+void get_obj(char *resp, char *obj);
 
-char *parent_from_path(char *path);
+void parent_from_path(char *path, char *name);

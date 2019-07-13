@@ -15,11 +15,12 @@ void init_chunk(struct chunk *chunk, int isdir, int hash, int ind)
     chunk->isdir = isdir;
 }
 
-void chunk_add_data(struct chunk *chunk, char *src, int elem_len, int str_size)
+void chunk_add_data(struct chunk *chunk, char *src, int elem_len)
 {
     memcpy(chunk->data + chunk->size, src, elem_len);
     chunk->size += elem_len;
     chunk_replace(chunk);
+    get_chunk(1, chunk->hash, chunk);
 }
 
 void chunk_write_data(struct chunk *chunk, char *src, int n, off_t chunk_offset, off_t src_offset)
@@ -37,45 +38,53 @@ void chunk_get_data(struct chunk *chunk, char *dst, int n, off_t chunk_offset, o
 
 void chunk_replace(struct chunk *chunk)
 {
-    replace_cache(get_chunk_hash(chunk->ind, chunk->hash), 0, 0, sizeof(struct chunk), (char *)chunk);
+    char chunk_hash[30];
+    memset(chunk_hash, 0, 30);
+    get_chunk_hash(chunk->ind, chunk->hash, chunk_hash);
+    replace_cache(chunk_hash, 0, 0, sizeof(struct chunk), (char *)chunk);
 }
 
 void chunk_delete(struct chunk *chunk)
 {
-    delete_cache(get_chunk_hash(chunk->ind, chunk->hash));
+    char chunk_hash[30];
+    memset(chunk_hash, 0, 30);
+    get_chunk_hash(chunk->ind, chunk->hash, chunk_hash);
+    delete_cache(chunk_hash);
 }
 
-struct chunk *create_new_chunk(int ind, int isdir, int hash)
+void create_new_chunk(int ind, int isdir, int hash, struct chunk *chunk)
 {
-    char *chunk_hash = get_chunk_hash(ind, hash);
-    struct chunk *chunk = malloc(sizeof(struct chunk));
+    char chunk_hash[30];
+    memset(chunk_hash, 0, 30);
+    get_chunk_hash(ind, hash, chunk_hash);
     memset(chunk, 0, sizeof(struct chunk));
     init_chunk(chunk, isdir, hash, ind);
-    // MEMCACHE ADD
-    add_cache(chunk_hash, 0, 0, 1024, (char *)chunk);
-    return chunk;
+    add_cache(chunk_hash, 0, 0, CHUNK_LEN, (char *)chunk);
+    return;
 }
 
 int can_fit(struct chunk *chunk, int bytes)
 {
-    return (chunk->size + bytes) < ((1024 - 4 * sizeof(int)));
+    return (chunk->size + bytes) < DATA_LEN;
 }
 
-struct chunk *get_chunk(int ind, int hash)
+void get_chunk(int ind, int hash, struct chunk *chunk)
 {
-    printf("%d %d\n", ind, hash);
-    char *chunk_hash = get_chunk_hash(ind, hash);
-    return (struct chunk *)get_obj(get_cache(chunk_hash));
+    char chunk_hash[30];
+    memset(chunk_hash, 0, 30);
+    get_chunk_hash(ind, hash, chunk_hash);
+    char buf[BUFLENGTH];
+    get_cache(chunk_hash, buf);
+    get_obj(buf, (char *)chunk);
+    return;
 }
 
-char *get_chunk_hash(int numb, int hash)
+void get_chunk_hash(int numb, int hash, char *hash_str)
 {
-    char *hash_str = int_to_string(hash);
-    //int len = strlen(hash_str);
-    //hash_str = realloc(hash_str, 30);
-    //printf("%d ait\n", len);
-    //hash_str[len] = '\0';
+    int_to_string(hash, hash_str);
     strcat(hash_str, "A");
-    strcat(hash_str, int_to_string(numb));
-    return hash_str;
+    char numbb[10];
+    memset(numbb, 0, 10);
+    int_to_string(numb, numbb);
+    strcat(hash_str, numbb);
 }

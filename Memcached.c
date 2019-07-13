@@ -11,7 +11,6 @@
 #include <string.h>
 #include <assert.h>
 #include "chunk.h"
-#define BUFLENGTH 1500
 
 int clientfd;
 struct sockaddr_in addr;
@@ -32,128 +31,73 @@ int tcp_init()
     create_connection();
 }
 
-char *get_response()
+void get_response(char *buf)
 {
-    char *buf = malloc(BUFLENGTH);
     int length;
-    while (length = read(clientfd, buf, BUFLENGTH))
+    char b[1500];
+    int l = 0;
+    while (length = read(clientfd, buf, 1500))
     {
-        buf[length] = '\0';
-        // printf("%s", buf);
-        if (length < BUFLENGTH)
-            break;
+        // memcpy(buf + l, b, length);
+        // l += length;
+        if (length < 1500)
+        {
+            // printf("ylleee %d\n", length);
+            return;
+        }
     }
-    return buf;
+    return;
 }
 
-char *conact_args(char *type, char *key, int flags, int exptime, int bytes, char *data)
+void conact_args(char *type, char *key, int flags, int exptime, int bytes, char *data)
 {
     char fl[30];
     sprintf(fl, "%d %d %d\r\n", flags, exptime, bytes);
-    char *req = malloc(4 + strlen(type) + strlen(key) + strlen(fl) + bytes);
+    char req[4 + strlen(type) + strlen(key) + strlen(fl) + bytes];
     sprintf(req, "%s %s %s", type, key, fl);
     int l = strlen(req) + bytes;
-    // printf("%d\n", l);
     memcpy(req + strlen(req), data, bytes);
     req[l] = '\r';
     req[l + 1] = '\n';
     write(clientfd, req, 4 + strlen(type) + strlen(key) + strlen(fl) + bytes);
-    return get_response();
+    char buf[CHUNK_LEN];
+    get_response(buf);
 }
 
 int add_cache(char *key, int flags, int exptime, int bytes, char *data)
 {
-    char *resp = conact_args("add", key, flags, exptime, bytes, data);
-    // create_connection();
-    return (strcmp(resp, "STORED") == 0) ? 1 : 0;
+    conact_args("add", key, flags, exptime, bytes, data);
 }
 int set_cache(char *key, int flags, int exptime, int bytes, char *data)
 {
-    char *resp = conact_args("set", key, flags, exptime, bytes, data);
-    // create_connection();
-    return (strcmp(resp, "STORED") == 0) ? 1 : 0;
+    conact_args("set", key, flags, exptime, bytes, data);
 }
 int replace_cache(char *key, int flags, int exptime, int bytes, char *data)
 {
-    char *resp = conact_args("replace", key, flags, exptime, bytes, data);
-    // create_connection();
-    return (strcmp(resp, "STORED") == 0) ? 1 : 0;
+    conact_args("replace", key, flags, exptime, bytes, data);
 }
-int append_cache(char *key, int flags, int exptime, int bytes, char *data)
+void get_cache(char *keys, char *buf)
 {
-    char *resp = conact_args("append", key, flags, exptime, bytes, data);
-    // create_connection();
-    return (strcmp(resp, "STORED") == 0) ? 1 : 0;
-}
-int prepend_cache(char *key, int flags, int exptime, int bytes, char *data)
-{
-    char *req = conact_args("prepend", key, flags, exptime, bytes, data);
-    create_connection();
-    write(clientfd, req, strlen(req));
-    char *resp = get_response();
-    return (strcmp(resp, "STORED") == 0) ? 1 : 0;
-}
-char *get_cache(char *keys)
-{
-    // create_connection();
     char req[30];
     sprintf(req, "get %s\r\n", keys);
     write(clientfd, req, strlen(req));
-    char *resp = get_response();
-    // printf("blawaaan1\n");
-    return resp;
+    get_response(buf);
+    return;
 }
 
 int flush_all()
 {
     write(clientfd, "flush_all\r\n", 11);
-    char *resp = get_response();
+    char buf[BUFLENGTH];
+    get_response(buf);
     return 1;
-}
-
-int gets_cache(char *keys)
-{
 }
 
 int delete_cache(char *key)
 {
     create_connection();
-    char req[24];
+    char req[24], buf[BUFLENGTH];
     sprintf(req, "delete %s\r\n", key);
     write(clientfd, req, strlen(req));
-    get_response();
-}
-
-int incr_cache(char *key, int val)
-{
-    create_connection();
-    char req[24];
-    sprintf(req, "incr %s %d\r\n", key, val);
-    write(clientfd, req, strlen(req));
-    get_response();
-}
-
-int decr_cache(char *key, int val)
-{
-    create_connection();
-    char req[24];
-    sprintf(req, "decr %s %d\r\n", key, val);
-    write(clientfd, req, strlen(req));
-    get_response();
-}
-
-int touch_cache(char *key, int exptime)
-{
-    create_connection();
-    char req[24];
-    sprintf(req, "touch %s %d\r\n", key, exptime);
-    write(clientfd, req, strlen(req));
-    get_response();
-}
-
-int stats_cache()
-{
-    create_connection();
-    write(clientfd, "stats\r\n", 7);
-    get_response();
+    get_response(buf);
 }
