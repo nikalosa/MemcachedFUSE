@@ -1,13 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// const size_t MAX_LEN = (CHUNK_LEN - sizeof(size_t) - 3 * sizeof(int));
-// #define CHUNK_LEN 2048
-// #define DATA_LEN 2032
-
-// #define CHUNK_LEN 4096
-// #define DATA_LEN 4088
-
 #define CHUNK_LEN 1024
 #define DATA_LEN 1008
 
@@ -39,3 +32,4 @@ int can_fit(struct chunk *chunk, int bytes);
 void chunk_replace(struct chunk *chunk);
 
 void chunk_delete(struct chunk *chunk);
+

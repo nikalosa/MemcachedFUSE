@@ -1,15 +1,40 @@
 #include "chunk.h"
 #include "Memcached.h"
+#include "Directory.h"
 #include "util.h"
-#include <sys/types.h>
+#include "hardlink.h"
 
+#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 void init_chunk(struct chunk *chunk, int isdir, int hash, int ind)
 {
-    chunk->size = 0;
+    if (isdir)
+        memset(chunk->data, 0, DATA_LEN);
+    if (isdir && ind == 1)
+    {
+        chunk->size = 20;
+        char hard_hash[30];
+        get_hard_hash(ind, hash, hard_hash);
+        printf("%s", hard_hash);
+        char len[3];
+        len[0] = len[1] = len[2] = '\0';
+        sprintf(len, "%d", (int)strlen(hard_hash));
+        strcat(len, "S");
+        strcat(chunk->data, len);
+        strcat(chunk->data, hard_hash);
+        while (strlen(chunk->data) != chunk->size)
+            strcat(chunk->data, "H");
+        struct hard_link hlink;
+        init_hard(&hlink, hash, ind);
+        add_hard(&hlink, hash);
+    }
+    else
+    {
+        chunk->size = 0;
+    }
     chunk->hash = hash;
     chunk->ind = ind;
     chunk->isdir = isdir;
@@ -26,8 +51,7 @@ void chunk_add_data(struct chunk *chunk, char *src, int elem_len)
 void chunk_write_data(struct chunk *chunk, char *src, int n, off_t chunk_offset, off_t src_offset)
 {
     memcpy(chunk->data + chunk_offset, src + src_offset, n);
-    if (chunk->size < chunk_offset + n)
-        chunk->size = chunk_offset + n;
+    chunk->size = chunk_offset + n;
     chunk_replace(chunk);
 }
 
@@ -60,6 +84,7 @@ void create_new_chunk(int ind, int isdir, int hash, struct chunk *chunk)
     memset(chunk, 0, sizeof(struct chunk));
     init_chunk(chunk, isdir, hash, ind);
     add_cache(chunk_hash, 0, 0, CHUNK_LEN, (char *)chunk);
+    get_chunk(ind, hash, chunk);
     return;
 }
 

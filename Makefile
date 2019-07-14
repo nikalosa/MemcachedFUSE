@@ -8,8 +8,8 @@ FLAGS=`pkg-config fuse3 --cflags --libs`
 # მისი სინტაქსი ასეთია:
 # სახელი : მოდულების სახელების რაზეც დამოკიდებულია
 # 		შესასრულებელი ბრძანება
-all : Fuse.o Memcached.o util.o Directory.o chunk.o
-	$(CC) Fuse.o Memcached.o util.o Directory.o chunk.o -o cachefs $(FLAGS)
+all : Fuse.o Memcached.o util.o Directory.o chunk.o hardlink.o
+	$(CC) Fuse.o Memcached.o util.o Directory.o chunk.o hardlink.o -o cachefs $(FLAGS)
 
 # რიგითი მოდულის კონფიგურაცია:
 # სახელი : დამოკიდებულებების სია (აქ შეიძლება იყოს .h ჰედერ ფაილებიც)
@@ -28,6 +28,9 @@ Directory.o : Directory.c
 
 chunk.o : chunk.c
 	$(CC) $(COMPILE_FLAGS) -c chunk.c 
+
+hardlink.o : hardlink.c
+	$(CC) $(COMPILE_FLAGS) -c hardlink.c
 
 
 
