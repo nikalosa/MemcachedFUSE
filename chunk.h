@@ -33,3 +33,4 @@ void chunk_replace(struct chunk *chunk);
 
 void chunk_delete(struct chunk *chunk);
 
+void chunk_set(struct chunk *chunk);

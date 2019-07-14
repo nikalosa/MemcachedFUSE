@@ -18,13 +18,13 @@ void init_chunk(struct chunk *chunk, int isdir, int hash, int ind)
         chunk->size = 20;
         char hard_hash[30];
         get_hard_hash(ind, hash, hard_hash);
-        printf("%s", hard_hash);
-        char len[3];
-        len[0] = len[1] = len[2] = '\0';
+        char len[4];
+        len[0] = len[1] = len[2] = len[3] = '\0';
         sprintf(len, "%d", (int)strlen(hard_hash));
         strcat(len, "S");
         strcat(chunk->data, len);
         strcat(chunk->data, hard_hash);
+        // printf("\nRILLY NIGGA? %s\n", chunk->data);
         while (strlen(chunk->data) != chunk->size)
             strcat(chunk->data, "H");
         struct hard_link hlink;
@@ -52,7 +52,7 @@ void chunk_write_data(struct chunk *chunk, char *src, int n, off_t chunk_offset,
 {
     memcpy(chunk->data + chunk_offset, src + src_offset, n);
     chunk->size = chunk_offset + n;
-    chunk_replace(chunk);
+    chunk_set(chunk);
 }
 
 void chunk_get_data(struct chunk *chunk, char *dst, int n, off_t chunk_offset, off_t dst_offset)
@@ -66,6 +66,14 @@ void chunk_replace(struct chunk *chunk)
     memset(chunk_hash, 0, 30);
     get_chunk_hash(chunk->ind, chunk->hash, chunk_hash);
     replace_cache(chunk_hash, 0, 0, sizeof(struct chunk), (char *)chunk);
+}
+
+void chunk_set(struct chunk *chunk)
+{
+    char chunk_hash[30];
+    memset(chunk_hash, 0, 30);
+    get_chunk_hash(chunk->ind, chunk->hash, chunk_hash);
+    set_cache(chunk_hash, 0, 0, sizeof(struct chunk), (char *)chunk);
 }
 
 void chunk_delete(struct chunk *chunk)

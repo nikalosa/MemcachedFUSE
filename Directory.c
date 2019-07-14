@@ -228,30 +228,37 @@ int mwrite(char *path, char *buf, size_t size, off_t offset)
     struct file file;
     path_to_file(path, &file);
     int written_bytes = 0;
-    int chunk_index = (offset + 20) / (DATA_LEN) + 1;
+    int start_index = (offset + 20) / (DATA_LEN) + 1;
+    int chunk_index = start_index;
     off_t chunk_offset = (offset - DATA_LEN + 20) % (DATA_LEN);
     if (chunk_index == 1)
         chunk_offset = 20 + offset;
-    int new_chunks = (offset + size + 20) / (DATA_LEN) + 1 - file.chunk_numb;
-    if (new_chunks > 0)
-    {
-        for (int i = 1; i <= new_chunks; i++)
-        {
-            struct chunk chunk;
-            create_new_chunk(file.chunk_numb + i, 1, file.real_hash, &chunk);
-        }
-    }
-    change_hards(&file, (offset + size + 20) / (DATA_LEN) + 1);
-    file.chunk_numb = (offset + size + 20) / (DATA_LEN) + 1;
+    int start_chunk_numb = file.chunk_numb;
+    int last_chunk = (offset + size + 20) / (DATA_LEN) + 1;
+    int new_chunks = last_chunk - file.chunk_numb;
+
+    change_hards(&file, last_chunk);
+    file.chunk_numb = last_chunk;
+    struct chunk chunk;
+    chunk.hash = file.file_hash;
+    chunk.isdir = 1;
     while (written_bytes < size)
     {
-        struct chunk chunk;
-        get_chunk(chunk_index, file.real_hash, &chunk);
         int free_space = (DATA_LEN)-chunk_offset;
         if (size - written_bytes < free_space)
             free_space = size - written_bytes;
+        if ((chunk_index > start_index && chunk_index < last_chunk) || (chunk_index == last_chunk && new_chunks > 0))
+        {
+            chunk.ind = chunk_index;
+            chunk.size = 0;
+            if (chunk.size < DATA_LEN)
+                memset(chunk.data, 0, DATA_LEN);
+        }
+        else
+        {
+            get_chunk(chunk_index, file.real_hash, &chunk);
+        }
         chunk_write_data(&chunk, buf, free_space, chunk_offset, written_bytes);
-        get_chunk(chunk.ind, chunk.hash, &chunk);
         written_bytes += free_space;
         chunk_offset = 0;
         chunk_index++;
@@ -307,11 +314,17 @@ int del_file_data(char *path)
     memset(ch_hash, 0, 30);
     memset(numb, 0, 10);
     int_to_string(file.file_hash, numb);
-    for (int i = 1; i <= file.chunk_numb; i++)
+    for (int i = 2; i <= file.chunk_numb; i++)
     {
         get_chunk_hash(i, file.real_hash, ch_hash);
         delete_cache(ch_hash);
     }
+    get_chunk_hash(1, file.real_hash, ch_hash);
+
+    get_chunk(1, file.real_hash, &chunk);
+    chunk.size = 20;
+    memset(chunk.data + 20, 0, DATA_LEN - 20);
+    chunk_replace(&chunk);
     change_hards(&file, 1);
     replace_cache(numb, 0, 0, sizeof(struct file), (char *)&file);
     return -1;
@@ -360,8 +373,6 @@ int rm_file(char *path)
     path_to_file(path, &file);
     struct chunk chunk;
     get_chunk(1, file.file_hash, &chunk);
-    if (file.chunk_numb > 1)
-        return -1;
 
     char numb[10], par[strlen(path)];
     memset(numb, 0, 10);
@@ -369,7 +380,6 @@ int rm_file(char *path)
     int_to_string(file.file_hash, numb);
     parent_from_path(path, par);
     struct directory par_dir;
-
     path_to_dir(par, &par_dir);
     get_chunk(file.chunk_id, par_dir.dir_hash, &chunk);
     for (int j = 0; j < chunk.size / 4; j++)

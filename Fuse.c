@@ -70,13 +70,15 @@ static int mem_getattr(const char *path, struct stat *stbuf,
     {
         struct hard_link hlink;
         path_to_hard_struct((char *)path, &hlink);
+        // printf("%s %d\n", path, hash_str(path));
+        // printf("%s %d\n", path, hlink.hard_link_size);
 
         stbuf->st_mode = S_IFREG | 0444;
         struct file file;
         path_to_file((char *)path, &file);
         if (file.is_sym)
         {
-            stbuf->st_mode = S_IFLNK | 0444;
+            stbuf->st_mode = S_IFLNK | 0777;
         }
         stbuf->st_nlink = hlink.hard_link_size;
         stbuf->st_size = file_size((char *)path);
@@ -123,7 +125,7 @@ static int mem_open(const char *path, struct fuse_file_info *fi)
 {
 
     // printf("open: %s\n", path);
-    if (fi->flags & (O_CREAT | O_WRONLY | O_TRUNC))
+    if (fi->flags & O_CREAT)
     {
         struct file file;
         create_file((char *)path, &file);
@@ -133,9 +135,9 @@ static int mem_open(const char *path, struct fuse_file_info *fi)
     if (O_TRUNC & fi->flags)
     {
         // printf("aeeeee\n");
-        // del_file_data((char *)path);
+        del_file_data((char *)path);
     }
-
+    // printf("ASDasdasdasda\n");
     // if ((fi->flags & O_ACCMODE) != O_RDONLY)
     //     return -EACCES;
 
@@ -171,17 +173,6 @@ static int mem_write(const char *path, const char *buf, size_t size,
         offset = -1;
     }
 
-    // printf("oeeee %s\n", path);
-
-    // printf("%d %d \n", offset, size);
-    // for (int i = 0; i < size; i++)
-    // {
-    //     printf("%c", buf[i]);
-    // }
-    // printf("\n");
-
-    // printf("oeeee %s\n", path);
-
     return mwrite((char *)path, (char *)buf, size, offset);
 }
 
@@ -201,7 +192,6 @@ static int mem_link(const char *from, const char *to)
     if (!is_file((char *)from) || is_dir((char *)to) || is_file((char *)to))
         return -ENOENT;
 
-    // printf("HASHEEEEEEES: %d %d\n", hash_str((char *)from), hash_str((char *)to));
     struct hard_link hlink;
     path_to_hard_struct((char *)from, &hlink);
 
@@ -211,7 +201,6 @@ static int mem_link(const char *from, const char *to)
     memcpy(&link, &file, sizeof(struct file));
     link.file_hash = hash_str((char *)to);
     name_from_path((char *)to, link.name);
-    // printf("AFTER HASHEEEEEEES: %d %d\n", link.file_hash, link.real_hash);
     add_hard(&hlink, link.file_hash);
 
     char hash[10];
@@ -233,6 +222,7 @@ static int mem_symlink(const char *from, const char *to)
     // if (!is_file((char *)from) || is_dir((char *)to) || is_file((char *)to))
     // return -ENOENT;
 
+    // printf("SYMLINK: %s %s\n", from, to);
     struct file file;
     path_to_file((char *)from, &file);
 
@@ -287,7 +277,7 @@ static struct fuse_operations mem_oper = {
     .init = mem_init,
     .getattr = mem_getattr,
     .readdir = mem_readdir,
-    // .open = mem_open,
+    .open = mem_open,
     .create = mem_create,
     .read = mem_read,
     .write = mem_write,

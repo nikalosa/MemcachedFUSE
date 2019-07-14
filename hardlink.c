@@ -85,13 +85,12 @@ void path_to_hard_struct(char *path, struct hard_link *hlink)
 void get_hard_struct(struct chunk *chunk, struct hard_link *hlink)
 {
     int len = (chunk->data[2] == 'S') ? 2 : 1;
-
     char nm[len];
     memset(nm, 0, len);
     strncpy(nm, chunk->data, len);
     int numb = string_to_int(nm);
-    char hard_hash[30];
-    memset(hard_hash, 0, 30);
+    char hard_hash[20];
+    memset(hard_hash, 0, 20);
     memcpy(hard_hash, chunk->data + len + 1, numb);
     char buf[1500];
     memset(buf, 0, 1500);
