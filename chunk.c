@@ -24,7 +24,6 @@ void init_chunk(struct chunk *chunk, int isdir, int hash, int ind)
         strcat(len, "S");
         strcat(chunk->data, len);
         strcat(chunk->data, hard_hash);
-        // printf("\nRILLY NIGGA? %s\n", chunk->data);
         while (strlen(chunk->data) != chunk->size)
             strcat(chunk->data, "H");
         struct hard_link hlink;

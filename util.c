@@ -51,7 +51,7 @@ void parent_from_path(char *path, char *name)
     }
 }
 
-void get_obj(char *resp, char *obj)
+int get_obj(char *resp, char *obj)
 {
     char *tok = strtok(resp, " ");
     int ind = 0;
@@ -65,11 +65,23 @@ void get_obj(char *resp, char *obj)
             offset += strlen(tok) + 2;
             len = string_to_int(tok);
             memcpy(obj, resp + offset, len);
-            return;
+            return len;
         }
         offset += strlen(tok) + 1;
         tok = strtok(NULL, " ");
         ind++;
     }
-    return;
+    return 0;
+}
+
+void get_attr_hash(char *path, char *key, char *req_key)
+{
+    char hash[10];
+    memset(hash, 0, 10);
+    int_to_string(hash_str(path), hash);
+    strcat(req_key, hash);
+    strcat(req_key, "X");
+    memset(hash, 0, 10);
+    int_to_string(hash_str(key), hash);
+    strcat(req_key, hash);
 }

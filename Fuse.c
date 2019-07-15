@@ -56,8 +56,6 @@ static int mem_getattr(const char *path, struct stat *stbuf,
                        struct fuse_file_info *fi)
 {
 
-    // printf("getattr: %s\n", path);
-
     (void)fi;
     int res = 0;
     memset(stbuf, 0, sizeof(struct stat));
@@ -70,9 +68,6 @@ static int mem_getattr(const char *path, struct stat *stbuf,
     {
         struct hard_link hlink;
         path_to_hard_struct((char *)path, &hlink);
-        // printf("%s %d\n", path, hash_str(path));
-        // printf("%s %d\n", path, hlink.hard_link_size);
-
         stbuf->st_mode = S_IFREG | 0444;
         struct file file;
         path_to_file((char *)path, &file);
@@ -114,7 +109,6 @@ static int mem_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     char *tok = strtok(dir_stuff, " ");
     while (tok != NULL)
     {
-        // printf("%s\n", tok);
         filler(buf, tok, NULL, 0, 0);
         tok = strtok(NULL, " ");
     }
@@ -124,7 +118,6 @@ static int mem_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 static int mem_open(const char *path, struct fuse_file_info *fi)
 {
 
-    // printf("open: %s\n", path);
     if (fi->flags & O_CREAT)
     {
         struct file file;
@@ -134,12 +127,8 @@ static int mem_open(const char *path, struct fuse_file_info *fi)
         return -ENOENT;
     if (O_TRUNC & fi->flags)
     {
-        // printf("aeeeee\n");
         del_file_data((char *)path);
     }
-    // printf("ASDasdasdasda\n");
-    // if ((fi->flags & O_ACCMODE) != O_RDONLY)
-    //     return -EACCES;
 
     return 0;
 }
@@ -153,12 +142,10 @@ static int mem_create(const char *path, mode_t mode,
 static int mem_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
-    // printf("%s %d\n", path, size);
     (void)fi;
     if (!is_file((char *)path))
         return -ENOENT;
     int res = mread((char *)path, buf, size, offset);
-    // printf("%s %d\n", buf, res);
     return res;
 }
 
@@ -218,11 +205,6 @@ static int mem_link(const char *from, const char *to)
 
 static int mem_symlink(const char *from, const char *to)
 {
-    // printf("%d %d %d\n", is_file((char *)from), is_dir((char *)to), is_file((char *)to));
-    // if (!is_file((char *)from) || is_dir((char *)to) || is_file((char *)to))
-    // return -ENOENT;
-
-    // printf("SYMLINK: %s %s\n", from, to);
     struct file file;
     path_to_file((char *)from, &file);
 
@@ -272,6 +254,149 @@ static int mem_unlink(const char *path)
 {
     munlink((char *)path);
 }
+// list hash$
+static int mem_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
+{
+    char req_key[21];
+    memset(req_key, 0, 21);
+    get_attr_hash((char *)path, (char *)name, req_key);
+    char list_key[12];
+    memset(list_key, 0, 12);
+    int_to_string(hash_str((char *)path), list_key);
+    strcat(list_key, "$");
+
+    char buf[BUFLENGTH];
+    memset(buf, 0, BUFLENGTH);
+    get_cache(list_key, buf);
+    char newlist[BUFLENGTH];
+    memset(newlist, 0, BUFLENGTH);
+    int ind = 0;
+    if (strlen(buf) > 10)
+    {
+        char list[BUFLENGTH];
+        memset(list, 0, BUFLENGTH);
+        int len = get_obj(buf, list), isthere = 0;
+        for (int i = 0; i < len; i = i)
+        {
+            char key[50];
+            memset(key, 0, 50);
+            strcat(key, list + i);
+            ind += strlen(key) + 1;
+            i += strlen(key) + 1;
+            if (strcmp(key, name) == 0)
+            {
+                isthere = 1;
+                break;
+            }
+        }
+        if (isthere == 0)
+        {
+            memcpy(list + ind, name, strlen(name));
+            list[ind + strlen(name)] = '\0';
+            set_cache(list_key, 0, 0, ind + strlen(name) + 1, list);
+        }
+    }
+    else
+    {
+        memcpy(newlist, name, strlen(name));
+        newlist[strlen(name)] = '\0';
+        set_cache(list_key, 0, 0, strlen(name) + 1, newlist);
+    }
+
+    set_cache(req_key, 0, 0, size, (char *)value);
+    return 0;
+}
+
+static int mem_getxattr(const char *path, const char *name, char *value, size_t size)
+{
+    char req_key[21];
+    memset(req_key, 0, 21);
+    get_attr_hash((char *)path, (char *)name, req_key);
+    char resp[1500];
+    memset(resp, 0, sizeof(resp));
+    get_cache(req_key, resp);
+    char val[1500];
+    memset(val, 0, 1500);
+    if (value == NULL)
+    {
+        int s = get_obj(resp, val);
+        return s + 1;
+    }
+    int s = get_obj(resp, val);
+    memset(value, 0, size);
+    memcpy(value, val, s);
+    value[s] = '\0';
+    return s;
+}
+
+static int mem_listxattr(const char *path, char *list, size_t size)
+{
+    char list_key[12];
+    memset(list_key, 0, 12);
+    int_to_string(hash_str((char *)path), list_key);
+    strcat(list_key, "$");
+
+    char buf[BUFLENGTH];
+    memset(buf, 0, BUFLENGTH);
+    get_cache(list_key, buf);
+    if (strlen(buf) > 10)
+    {
+        char listt[BUFLENGTH];
+        memset(listt, 0, BUFLENGTH);
+        int len = get_obj(buf, listt);
+        if (list != NULL)
+        {
+            memcpy(list, listt, len);
+            return len;
+        }
+        return len;
+    }
+    return 0;
+}
+
+static int mem_removexattr(const char *path, const char *name)
+{
+
+    char req_key[21];
+    memset(req_key, 0, 21);
+    get_attr_hash((char *)path, (char *)name, req_key);
+
+    char list_key[12];
+    memset(list_key, 0, 12);
+    int_to_string(hash_str((char *)path), list_key);
+    strcat(list_key, "$");
+
+    char buf[BUFLENGTH];
+    memset(buf, 0, BUFLENGTH);
+    get_cache(list_key, buf);
+    if (strlen(buf) > 10)
+    {
+        char list[BUFLENGTH];
+        memset(list, 0, BUFLENGTH);
+        int len = get_obj(buf, list);
+        char newlist[BUFLENGTH];
+        memset(newlist, 0, BUFLENGTH);
+        int ind = 0;
+        for (int i = 0; i < len; i = i)
+        {
+            char key[50];
+            memset(key, 0, 50);
+            strcat(key, list + i);
+            if (strcmp(key, name) != 0)
+            {
+                memcpy(newlist + ind, key, strlen(key));
+                ind += strlen(key);
+                newlist[ind] = '\0';
+                ind++;
+            }
+            i += strlen(key) + 1;
+        }
+        set_cache(list_key, 0, 0, ind, newlist);
+    }
+
+    delete_cache(req_key);
+    return 0;
+}
 
 static struct fuse_operations mem_oper = {
     .init = mem_init,
@@ -287,6 +412,10 @@ static struct fuse_operations mem_oper = {
     .unlink = mem_unlink,
     .symlink = mem_symlink,
     .readlink = mem_readlink,
+    .setxattr = mem_setxattr,
+    .getxattr = mem_getxattr,
+    .listxattr = mem_listxattr,
+    .removexattr = mem_removexattr,
 };
 
 int main(int argc, char *argv[])

@@ -13,6 +13,8 @@ void int_to_string(int num, char *str_num);
 
 void name_from_path(char *path, char *name);
 
-void get_obj(char *resp, char *obj);
+int get_obj(char *resp, char *obj);
 
 void parent_from_path(char *path, char *name);
+
+void get_attr_hash(char *path, char *key, char *req_key);
