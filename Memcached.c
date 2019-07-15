@@ -85,11 +85,15 @@ void get_cache(char *keys, char *buf)
     return;
 }
 
-int flush_all()
+int flush_all(int end)
 {
     write(clientfd, "flush_all\r\n", 11);
     char buf[BUFLENGTH];
     get_response(buf);
+    if (end)
+    {
+        close(clientfd);
+    }
     return 1;
 }
 

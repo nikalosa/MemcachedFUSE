@@ -13,7 +13,7 @@ void init_dir(struct directory *dir, int hash, char *name)
 {
     dir->unused = 0;
     dir->dir_hash = hash;
-    memset(dir->name, 0, 50);
+    memset(dir->name, 0, 256);
     strcpy(dir->name, name);
     dir->chunk_numb = 1;
     char hash_str[10];
@@ -44,8 +44,8 @@ int make_dir(char *path)
     else
         dir.chunk_id = 0;
 
-    char name[50];
-    memset(name, 0, sizeof(50));
+    char name[256];
+    memset(name, 0, sizeof(256));
     name_from_path(path, name);
     init_dir(&dir, hash_str(path), name);
     // free(&dir);
@@ -193,6 +193,7 @@ void init_file(struct file *file, int hash, char *name, int sym)
 {
     file->unused = 1;
     file->file_hash = file->real_hash = hash;
+    memset(file->name, 0, 256);
     strcpy(file->name, name);
     file->is_sym = sym;
     file->chunk_numb = 1;
@@ -206,9 +207,9 @@ void init_file(struct file *file, int hash, char *name, int sym)
 
 void create_file(char *path, struct file *file)
 {
-    char par[strlen(path)], name[50];
+    char par[strlen(path)], name[256];
     memset(par, 0, strlen(path));
-    memset(name, 0, 50);
+    memset(name, 0, 256);
 
     parent_from_path(path, par);
     name_from_path(path, name);

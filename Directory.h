@@ -10,7 +10,7 @@ struct directory
     int chunk_id;
     int chunk_numb;
     int dir_hash;
-    char name[50];
+    char name[256];
 };
 
 struct file
@@ -19,7 +19,7 @@ struct file
     int chunk_id;
     int chunk_numb;
     int file_hash;
-    char name[50];
+    char name[256];
     int real_hash;
     int is_sym;
 };

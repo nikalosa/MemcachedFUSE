@@ -46,9 +46,18 @@ static void *mem_init(struct fuse_conn_info *conn,
                       struct fuse_config *cfg)
 {
     (void)conn;
+
     tcp_init();
-    flush_all();
-    make_dir("/");
+    char buf[BUFLENGTH];
+    memset(buf, 0, BUFLENGTH);
+    get_cache("////////////nikalosa", buf);
+    if (strlen(buf) < 10)
+    {
+        // printf("ae %s\n", buf);
+        add_cache("////////////nikalosa", 0, 0, 1, "a");
+        flush_all(0);
+        make_dir("/");
+    }
     return NULL;
 }
 
@@ -171,7 +180,10 @@ static int mem_mkdir(const char *path, mode_t mode)
 
 static int mem_rmdir(const char *path)
 {
-    return rm_dir((char *)path);
+    int bla = rm_dir((char *)path);
+    if (bla == -1)
+        return -ENOTEMPTY;
+    return 0;
 }
 
 static int mem_link(const char *from, const char *to)
@@ -195,8 +207,8 @@ static int mem_link(const char *from, const char *to)
     int_to_string(hash_str((char *)to), hash);
     add_cache(hash, 0, 0, sizeof(file), (char *)&link);
     struct directory parent_dir;
-    char name[50];
-    memset(name, 0, 50);
+    char name[256];
+    memset(name, 0, 256);
     parent_from_path((char *)to, name);
     path_to_dir(name, &parent_dir);
     add_object(&parent_dir, hash_str((char *)to));
@@ -211,8 +223,8 @@ static int mem_symlink(const char *from, const char *to)
     struct file sym_file;
     memset(&sym_file, 0, sizeof(struct file));
     sym_file.is_sym = 1;
-    char name[50];
-    memset(name, 0, 50);
+    char name[256];
+    memset(name, 0, 256);
     name_from_path((char *)to, name);
 
     char par[strlen((char *)to)];
@@ -278,8 +290,8 @@ static int mem_setxattr(const char *path, const char *name, const char *value, s
         int len = get_obj(buf, list), isthere = 0;
         for (int i = 0; i < len; i = i)
         {
-            char key[50];
-            memset(key, 0, 50);
+            char key[256];
+            memset(key, 0, 256);
             strcat(key, list + i);
             ind += strlen(key) + 1;
             i += strlen(key) + 1;
@@ -379,8 +391,8 @@ static int mem_removexattr(const char *path, const char *name)
         int ind = 0;
         for (int i = 0; i < len; i = i)
         {
-            char key[50];
-            memset(key, 0, 50);
+            char key[256];
+            memset(key, 0, 256);
             strcat(key, list + i);
             if (strcmp(key, name) != 0)
             {
@@ -396,6 +408,11 @@ static int mem_removexattr(const char *path, const char *name)
 
     delete_cache(req_key);
     return 0;
+}
+
+static void destroy(void *private_data)
+{
+    flush_all(1);
 }
 
 static struct fuse_operations mem_oper = {
