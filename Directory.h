@@ -10,7 +10,11 @@ struct directory
     int chunk_id;
     int chunk_numb;
     int dir_hash;
+    uid_t uid;
+    gid_t gid;
+    mode_t mode;
     char name[256];
+    int is_sym;
 };
 
 struct file
@@ -19,13 +23,16 @@ struct file
     int chunk_id;
     int chunk_numb;
     int file_hash;
+    uid_t uid;
+    gid_t gid;
+    mode_t mode;
     char name[256];
     int real_hash;
     int is_sym;
 };
 
-void init_dir(struct directory *dir, int hash, char *name);
-int make_dir(char *path);
+void init_dir(struct directory *dir, int hash, char *name, mode_t mode, uid_t uid, gid_t gid);
+int make_dir(char *path, mode_t mode, uid_t uid, gid_t gid);
 int is_dir(char *path);
 char *read_dir(char *path);
 int rm_dir(char *path);

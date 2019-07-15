@@ -9,13 +9,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void init_dir(struct directory *dir, int hash, char *name)
+void init_dir(struct directory *dir, int hash, char *name, mode_t mode, uid_t uid, gid_t gid)
 {
     dir->unused = 0;
     dir->dir_hash = hash;
     memset(dir->name, 0, 256);
     strcpy(dir->name, name);
     dir->chunk_numb = 1;
+    dir->mode = mode;
+    dir->uid = uid;
+    dir->gid = gid;
     char hash_str[10];
     memset(hash_str, 0, sizeof(10));
     int_to_string(hash, hash_str);
@@ -25,7 +28,7 @@ void init_dir(struct directory *dir, int hash, char *name)
     get_chunk(1, chunk.hash, &chunk);
 }
 
-int make_dir(char *path)
+int make_dir(char *path, mode_t mode, uid_t uid, gid_t gid)
 {
 
     if (strlen(path) == 1)
@@ -47,7 +50,7 @@ int make_dir(char *path)
     char name[256];
     memset(name, 0, sizeof(256));
     name_from_path(path, name);
-    init_dir(&dir, hash_str(path), name);
+    init_dir(&dir, hash_str(path), name, mode, uid, gid);
     // free(&dir);
     return 0;
 }

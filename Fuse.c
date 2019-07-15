@@ -56,7 +56,8 @@ static void *mem_init(struct fuse_conn_info *conn,
         // printf("ae %s\n", buf);
         add_cache("////////////nikalosa", 0, 0, 1, "a");
         flush_all(0);
-        make_dir("/");
+        struct fuse_context *context = (struct fuse_context *)fuse_get_context();
+        make_dir("/", ACCESSPERMS, context->uid, context->gid);
     }
     return NULL;
 }
@@ -82,6 +83,7 @@ static int mem_getattr(const char *path, struct stat *stbuf,
         path_to_file((char *)path, &file);
         if (file.is_sym)
         {
+            // printf("NIKALOSA\n");
             stbuf->st_mode = S_IFLNK | 0777;
         }
         stbuf->st_nlink = hlink.hard_link_size;
@@ -93,6 +95,50 @@ static int mem_getattr(const char *path, struct stat *stbuf,
     }
 
     return res;
+}
+
+static int mem_access(const char *path, int mask)
+{
+    struct fuse_context *context = (struct fuse_context *)fuse_get_context();
+
+    char hash[10];
+    memset(hash, 0, 10);
+    int_to_string(hash_str((char *)path), hash);
+    if (is_dir((char *)path))
+    {
+        struct directory dir;
+        path_to_dir((char *)path, &dir);
+        if (dir.mode == 0)
+            return 0;
+        int r, w, e;
+        if (context->uid == dir.uid)
+            r = S_IRUSR, w = S_IWUSR, e = S_IXUSR;
+        else if (context->gid == dir.gid)
+            r = S_IRGRP, w = S_IWGRP, e = S_IXGRP;
+        else
+            r = S_IROTH, w = S_IWOTH, e = S_IXOTH;
+
+        if (((mask & R_OK) && !(dir.mode & r)) || ((mask & W_OK) && !(dir.mode & w)) || ((mask & X_OK) && !(dir.mode & e)))
+            return -EACCES;
+    }
+    else
+    {
+        struct file file;
+        path_to_file((char *)path, &file);
+        if (file.mode == 0)
+            return 0;
+        int r, w, e;
+        if (context->uid == file.uid)
+            r = S_IRUSR, w = S_IWUSR, e = S_IXUSR;
+        else if (context->gid == file.gid)
+            r = S_IRGRP, w = S_IWGRP, e = S_IXGRP;
+        else
+            r = S_IROTH, w = S_IWOTH, e = S_IXOTH;
+
+        if (((mask & R_OK) && !(file.mode & r)) || ((mask & W_OK) && !(file.mode & w)) || ((mask & X_OK) && !(file.mode & e)))
+            return -EACCES;
+    }
+    return 0;
 }
 
 static int mem_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
@@ -112,9 +158,7 @@ static int mem_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
     char *dir_stuff = read_dir((char *)path);
     if (dir_stuff == NULL)
-    {
         return 0;
-    }
     char *tok = strtok(dir_stuff, " ");
     while (tok != NULL)
     {
@@ -126,18 +170,10 @@ static int mem_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 }
 static int mem_open(const char *path, struct fuse_file_info *fi)
 {
-
-    if (fi->flags & O_CREAT)
-    {
-        struct file file;
-        create_file((char *)path, &file);
-    }
-    else if (!is_file((char *)path))
+    if (!is_file((char *)path))
         return -ENOENT;
     if (O_TRUNC & fi->flags)
-    {
         del_file_data((char *)path);
-    }
 
     return 0;
 }
@@ -145,13 +181,24 @@ static int mem_open(const char *path, struct fuse_file_info *fi)
 static int mem_create(const char *path, mode_t mode,
                       struct fuse_file_info *fi)
 {
+    int mask = W_OK;
+    // if (mem_access(path, mask))
+    //     return -EACCES;
+    struct fuse_context *context = (struct fuse_context *)fuse_get_context();
+    struct file file;
+    file.mode = mode;
+    file.uid = context->uid;
+    file.gid = context->gid;
+    create_file((char *)path, &file);
     return mem_open(path, fi);
 }
 
 static int mem_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
-    (void)fi;
+    int mask = R_OK;
+    // if (mem_access(path, mask))
+    //     return -EACCES;
     if (!is_file((char *)path))
         return -ENOENT;
     int res = mread((char *)path, buf, size, offset);
@@ -163,23 +210,31 @@ static int mem_write(const char *path, const char *buf, size_t size,
 {
     if (!is_file((char *)path))
         return -ENOENT;
+    int mask = W_OK;
+    // if (mem_access(path, mask))
+    //     return -EACCES;
 
     if (O_APPEND & fi->flags)
-    {
         offset = -1;
-    }
 
     return mwrite((char *)path, (char *)buf, size, offset);
 }
 
 static int mem_mkdir(const char *path, mode_t mode)
 {
-    make_dir((char *)path);
+    int mask = W_OK;
+    // if (mem_access(path, mask))
+    //     return -EACCES;
+    struct fuse_context *context = (struct fuse_context *)fuse_get_context();
+    make_dir((char *)path, mode, context->uid, context->gid);
     return 0;
 }
 
 static int mem_rmdir(const char *path)
 {
+    int mask = W_OK;
+    // if (mem_access(path, mask))
+    //     return -EACCES;
     int bla = rm_dir((char *)path);
     if (bla == -1)
         return -ENOTEMPTY;
@@ -188,10 +243,11 @@ static int mem_rmdir(const char *path)
 
 static int mem_link(const char *from, const char *to)
 {
-    if (!is_file((char *)from) || is_dir((char *)to) || is_file((char *)to))
-        return -ENOENT;
+    // if (!is_file((char *)from) || is_dir((char *)to) || is_file((char *)to))
+    //     return -ENOENT;
 
     struct hard_link hlink;
+    // printf("asdasdasdada\n");
     path_to_hard_struct((char *)from, &hlink);
 
     struct file file;
@@ -201,7 +257,6 @@ static int mem_link(const char *from, const char *to)
     link.file_hash = hash_str((char *)to);
     name_from_path((char *)to, link.name);
     add_hard(&hlink, link.file_hash);
-
     char hash[10];
     memset(hash, 0, 10);
     int_to_string(hash_str((char *)to), hash);
@@ -251,9 +306,7 @@ static int mem_readlink(const char *path, char *buf, size_t size)
     path_to_file((char *)path, &file);
 
     if (!file.is_sym)
-    {
         return -ENOENT;
-    }
 
     struct chunk chunk;
     get_chunk(1, hash_str((char *)path), &chunk);
@@ -264,9 +317,13 @@ static int mem_readlink(const char *path, char *buf, size_t size)
 
 static int mem_unlink(const char *path)
 {
+    int mask = W_OK;
+    // if (mem_access(path, mask))
+    //     return -EACCES;
     munlink((char *)path);
+    return 0;
 }
-// list hash$
+
 static int mem_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
 {
     char req_key[21];
@@ -410,7 +467,119 @@ static int mem_removexattr(const char *path, const char *name)
     return 0;
 }
 
-static void destroy(void *private_data)
+static int mem_chmod(const char *path, mode_t mode, struct fuse_file_info *fi)
+{
+
+    struct fuse_context *context = (struct fuse_context *)fuse_get_context();
+
+    char hash[10];
+    memset(hash, 0, 10);
+    int_to_string(hash_str((char *)path), hash);
+
+    if (is_dir((char *)path))
+    {
+        struct directory dir;
+        path_to_dir((char *)path, &dir);
+
+        if (context->uid == 0 || context->uid == dir.uid)
+        {
+            dir.mode = mode;
+            replace_cache(hash, 0, 0, sizeof(struct directory), (char *)&dir);
+            return 0;
+        }
+    }
+    else
+    {
+        struct file file;
+        path_to_file((char *)path, &file);
+
+        if (context->uid == 0 || context->uid == file.uid)
+        {
+            file.mode = mode;
+            replace_cache(hash, 0, 0, sizeof(struct file), (char *)&file);
+            return 0;
+        }
+    }
+
+    return -EPERM;
+}
+
+static int mem_chown(const char *path, uid_t uid, gid_t gid, struct fuse_file_info *fi)
+{
+    struct fuse_context *context = (struct fuse_context *)fuse_get_context();
+
+    char hash[10];
+    memset(hash, 0, 10);
+    int_to_string(hash_str((char *)path), hash);
+
+    if (is_dir((char *)path))
+    {
+        struct directory dir;
+        path_to_dir((char *)path, &dir);
+        if (context->uid == 0 && uid != -1)
+            dir.uid = uid;
+        if (context->uid == 0 && gid != -1)
+            dir.gid = gid;
+        if (context->uid != 0 && (dir.uid != context->uid || dir.gid != context->uid))
+            return -EPERM;
+        else if (context->uid != 0 && gid != -1)
+            dir.gid = gid;
+        replace_cache(hash, 0, 0, sizeof(struct directory), (char *)&dir);
+    }
+    else
+    {
+        struct file file;
+        path_to_file((char *)path, &file);
+        if (context->uid == 0 && uid != -1)
+            file.uid = uid;
+        if (context->uid == 0 && gid != -1)
+            file.gid = gid;
+        if (context->uid != 0 && (file.uid != context->uid || file.gid != context->uid))
+            return -EPERM;
+        else if (context->uid != 0 && gid != -1)
+            file.gid = gid;
+        replace_cache(hash, 0, 0, sizeof(struct file), (char *)&file);
+    }
+
+    return 0;
+}
+
+static int mem_statfs(const char *path, struct statvfs *stbuf)
+{
+    return 0;
+}
+
+static int mem_releasedir(const char *path, struct fuse_file_info *fi)
+{
+    return 0;
+}
+
+static int mem_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
+{
+    return 0;
+}
+
+static int mem_release(const char *path, struct fuse_file_info *fi)
+{
+    return 0;
+}
+
+static int mem_fsyncdir(const char *path, int isdatasync, struct fuse_file_info *fi)
+{
+    return 0;
+}
+
+static int mem_flush(const char *path, struct fuse_file_info *fi)
+{
+    return 0;
+}
+
+static int mem_opendir(const char *path, struct fuse_file_info *fi)
+{
+    return 0;
+}
+
+static void mem_destroy(void *private_data)
 {
     flush_all(1);
 }
@@ -433,6 +602,17 @@ static struct fuse_operations mem_oper = {
     .getxattr = mem_getxattr,
     .listxattr = mem_listxattr,
     .removexattr = mem_removexattr,
+    .statfs = mem_statfs,
+    .destroy = mem_destroy,
+    .releasedir = mem_releasedir,
+    .fsync = mem_fsync,
+    .release = mem_release,
+    .fsyncdir = mem_fsyncdir,
+    .flush = mem_flush,
+    .opendir = mem_opendir,
+    .access = mem_access,
+    .chmod = mem_chmod,
+    .chown = mem_chown,
 };
 
 int main(int argc, char *argv[])
